@@ -497,7 +497,7 @@ same version is installed on each host.
 # yum install etcd iptables-service
 ----
 
-. If replacing a failed etcd member, remove the member **before** adding the new member.
+. If replacing a failed etcd member, remove the failed member **before** adding the new member.
 +
 ----
 # etcdctl -C https://<surviving host IP>:2379 \
@@ -588,7 +588,7 @@ $ mkdir $PREFIX
 # scp ${PREFIX}${CN}.tgz  $CN:/etc/etcd/
 ----
 
-. While still on the surviving etcd host, add the new host to the cluster, take the copy of etcd, and transfer it to the new host:
+. While still on the surviving etcd host, add the new host to the cluster, take a backup of etcd and transfer it to the new host:
 
 .. Add the new host to the cluster:
 +
@@ -606,48 +606,22 @@ ETCD_NAME="<NEW_ETCD_HOSTNAME>"
 ETCD_INITIAL_CLUSTER="<NEW_ETCD_HOSTNAME>=https://<NEW_HOST_IP>:2380,<SURVIVING_ETCD_HOST>=https:/<SURVIVING_HOST_IP>:2380
 ETCD_INITIAL_CLUSTER_STATE="existing"
 ----
++
+Copy the three environment variables in the etcdctl member add output.
 
-.. Create a backup of the surviving etcd host, and transfer the contents to the new
-host:
-+
-[NOTE]
-====
-Skip this step if version is lower than `etcd-2.3.7-4` or if etcd database size
-is smaller than 700 MB.
-
-If the etcd backup is larger than 700 MB,
-xref:../admin_guide/pruning_resources.adoc#admin-guide-pruning-resources[prune
-the resource], or clear time to live (TTL) data, such as events. If the backup
-is still larger than 700 MB, stop the other hosts before performing this step.
-====
-+
-[WARNING]
-====
-If you must skip this step, do not use a backup of *_/var/lib/etcd_*. Also, if
-you reuse a node, *_/var/lib/etcd_* must first be purged of old data. Otherwise,
-etcd will also indicate that the `cluster-id` does not match.
-====
+.. On the new host, extract the copied configuration data and set the permissions:
 +
 ----
-# export NODE_ID="<NEW_NODE_ID>"
-# etcdctl backup --keep-cluster-id --node-id ${NODE_ID} \
-  --data-dir /var/lib/etcd --backup-dir /var/lib/etcd/$NEW_ETCD-backup
-# tar -cvf $NEW_ETCD-backup.tar.gz -C /var/lib/etcd/$NEW_ETCD-backup/ .
-# scp $NEW_ETCD-backup.tar.gz $NEW_ETCD:/var/lib/etcd/
-----
-+
-On the new host, extract the backup data and set the permissions:
-+
-----
-# tar -xf /etc/etcd/<NEW_ETCD_HOSTNAME> -C /etc/etcd/ --overwrite
+# tar -xf /etc/etcd/<NEW_ETCD_HOSTNAME>.tgz -C /etc/etcd/ --overwrite
 # chown etcd:etcd /etc/etcd/*
-
-# rm -rf /var/lib/etcd/member
-# tar -xf /var/lib/etcd/<NEW_ETCD_HOSTNAME>-backup.tar.gz -C /var/lib/etcd/
-# chown -R etcd:etcd /var/lib/etcd/
 ----
 +
-Ensure that you save the *_db_* file.
+.. On the new host, remove any etcd data
++
+----
+# rm -rf /var/lib/etcd/*
+# chown -R etcd:etcd /var/lib/etcd
+----
 
 . On the new etcd host's *_etcd.conf_* file:
 .. Replace the following with the values generated in the previous step:
@@ -679,6 +653,27 @@ etcdctl -C https://${ETCD_CA_HOST}:2379 --ca-file=/etc/etcd/ca.crt \
   --cert-file=/etc/etcd/peer.crt     \
   --key-file=/etc/etcd/peer.key cluster-health
 ----
+
+. Update the master configuration on all masters to point to the new etcd host
++
+.. On every master in the cluster, edit *_/etc/origin/master/master-config.yaml_*
+.. Find the *etcdClientInfo* section.
+.. Add the new etcd host to the *urls* list.
+.. If a failed etcd host was replaced, remove it from the list.
+.. Restart the master API service
+On a single master cluster installation:
++
+----
+# systemctl restart atomic-openshift-master
+----
++
+On a multi-master cluster installation, on each master:
+----
+# systemctl restart atomic-openshift-master-api
+----
+
+The procedure to add an etcd member is complete.
+
 
 [[bringing-openshift-services-back-online]]
 == Bringing {product-title} Services Back Online
