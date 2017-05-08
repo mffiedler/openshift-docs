@@ -453,7 +453,6 @@ member d266df286a41a8a4 is healthy
 xref:bringing-openshift-services-back-online[Bringing {product-title}
 Services Back Online].
 
-////
 [[backup-restore-adding-etcd-hosts]]
 == Adding New etcd Hosts
 
@@ -555,10 +554,11 @@ $ mkdir $PREFIX
   -extensions etcd_v3_ca_peer -batch
 ----
 
-.. Copy the *_etcd.conf_* file, and archive the contents of the directory:
+.. Copy the *_etcd.conf_* and *_ca.crt_* files, and archive the contents of the directory:
 +
 ----
 # cp etcd.conf ${PREFIX}
+# cp ca.crt ${PREFIX}
 # tar -czvf ${PREFIX}${CN}.tgz -C ${PREFIX} .
 ----
 
@@ -659,7 +659,6 @@ etcdctl -C https://${ETCD_CA_HOST}:2379 --ca-file=/etc/etcd/ca.crt \
   --cert-file=/etc/etcd/peer.crt     \
   --key-file=/etc/etcd/peer.key cluster-health
 ----
-////
 
 [[bringing-openshift-services-back-online]]
 == Bringing {product-title} Services Back Online
