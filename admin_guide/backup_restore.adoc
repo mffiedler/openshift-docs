@@ -453,23 +453,23 @@ member d266df286a41a8a4 is healthy
 xref:bringing-openshift-services-back-online[Bringing {product-title}
 Services Back Online].
 
-////
 [[backup-restore-adding-etcd-hosts]]
 == Adding New etcd Hosts
 
-In cases where etcd hosts have failed, but you have at least one host still
-running, you can use the one surviving host to recover etcd hosts without
-downtime.
+In cases where etcd hosts have failed, but you have a quorum of etcd 
+cluster members still running, you can use the surviving hosts to
+add additional etcd members without downtime.
 
 *Suggested Cluster Size*
 
 Having a cluster with an odd number of etcd hosts can account for fault
 tolerance. Having an odd number of etcd hosts does not change the number needed
-for majority, but increases the tolerance for failure. For example, a cluster
-size of seven hosts has a majority of four, leaving a failure tolerance of
-three. This ensures that four hosts will be guaranteed to operate.
+for a quorum, but increases the tolerance for failure. For example, a cluster
+size of three members, quorum is 2 leaving a failure tolerance of
+one. This ensures the cluster will continue to operate if 2 of the members are 
+healthy.
 
-Having an in-production cluster of seven etcd hosts is recommended.
+Having an in-production cluster of three etcd hosts is recommended.
 
 [NOTE]
 ====
@@ -477,20 +477,39 @@ The following presumes you have a backup of the */etc/etcd* configuration for
 the etcd hosts.
 ====
 
-. xref:../install_config/adding_hosts_to_existing_cluster.adoc#install-config-adding-hosts-to-cluster[Add
+. If the new etcd nodes will also be {product-title} nodes, see xref:../install_config/adding_hosts_to_existing_cluster.adoc#install-config-adding-hosts-to-cluster[Add
 the desired number of hosts to the cluster]. The rest of this procedure presumes
 you have added just one host, but if adding multiple, perform all steps on each
 host.
 
-. Upgrade etcd on the surviving node:
+. Upgrade etcd and iptables on the surviving nodes:
 +
 ----
-# yum install etcd iptables-services
+# yum update etcd iptables-services
 ----
 +
 Ensure version `etcd-2.3.7-4.el7.x86_64` or greater is installed, and that the
 same version is installed on each host.
 
+. Install etcd and iptables on the new host
++
+----
+# yum install etcd iptables-service
+----
+
+. If replacing a failed etcd member, remove the member **before** adding the new member.
++
+----
+# etcdctl -C https://<surviving host IP>:2379 \
+  --ca-file=/etc/etcd/ca.crt     \
+  --cert-file=/etc/etcd/peer.crt     \
+  --key-file=/etc/etcd/peer.key cluster-health
+  
+# etcdctl -C https://<surviving host IP>:2379 \
+  --ca-file=/etc/etcd/ca.crt     \
+  --cert-file=/etc/etcd/peer.crt     \
+  --key-file=/etc/etcd/peer.key member remove <failed member identifier>
+----
 . On the new host, add the appropriate iptables rules:
 +
 ----
@@ -555,10 +574,11 @@ $ mkdir $PREFIX
   -extensions etcd_v3_ca_peer -batch
 ----
 
-.. Copy the *_etcd.conf_* file, and archive the contents of the directory:
+.. Copy the *_etcd.conf_* and *_ca.crt_* files, and archive the contents of the directory:
 +
 ----
 # cp etcd.conf ${PREFIX}
+# cp ca.crt ${PREFIX}
 # tar -czvf ${PREFIX}${CN}.tgz -C ${PREFIX} .
 ----
 
@@ -659,7 +679,6 @@ etcdctl -C https://${ETCD_CA_HOST}:2379 --ca-file=/etc/etcd/ca.crt \
   --cert-file=/etc/etcd/peer.crt     \
   --key-file=/etc/etcd/peer.key cluster-health
 ----
-////
 
 [[bringing-openshift-services-back-online]]
 == Bringing {product-title} Services Back Online
