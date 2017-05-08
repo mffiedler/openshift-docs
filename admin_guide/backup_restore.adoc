@@ -510,6 +510,12 @@ same version is installed on each host.
   --cert-file=/etc/etcd/peer.crt     \
   --key-file=/etc/etcd/peer.key member remove <failed member identifier>
 ----
++
+Stop the etcd service on the failed etcd member:
++
+----
+# systemctl stop etcd
+----
 . On the new host, add the appropriate iptables rules:
 +
 ----
@@ -619,7 +625,7 @@ Copy the three environment variables in the etcdctl member add output.
 .. On the new host, remove any etcd data
 +
 ----
-# rm -rf /var/lib/etcd/*
+# rm -rf /var/lib/etcd/member
 # chown -R etcd:etcd /var/lib/etcd
 ----
 
